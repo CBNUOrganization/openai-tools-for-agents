@@ -4,10 +4,8 @@ from io import BytesIO
 
 client = OpenAI()
 
+# Upload file into OpenAI server
 def create_file(client, file_path):
-    # vector_store = client.vector_stores.create(        # Create vector store
-    #     name="File Storage",
-    # )
     if file_path.startswith("http://") or file_path.startswith("https://"):
         # Download the file content from the URL
         response = requests.get(file_path)
@@ -28,6 +26,7 @@ def create_file(client, file_path):
     print(result.id)
     return result.id
 
+# Function to create vector store in OpenAI
 def create_vector_store(file_id):
     vector_store = client.vector_stores.create(
         name = "knowledge_base"
@@ -52,28 +51,33 @@ if not os.path.exists(file_path):
 else:
     print(f"File found: {file_path}")
 
+# Replace with your own file path or URL, you can upload file locally or using site.
+file_id = create_file(client, file_path)
 
-# Replace with your own file path or URL
-# file_id = create_file(client, file_path)
-# vector_store_id = create_vector_store(file_id)
-# print("vector_store_id ",vector_store_id)
+# Create Vector Store
+vector_store_id = create_vector_store(file_id)
+
+# Create File Search response
 response = client.responses.create(
     model="gpt-4o-mini",
     input="What is deep research by OpenAI?",
     tools=[{
         "type": "file_search",
-        "vector_store_ids": ["vs_67d133902c84819185fe88ded5853962"],
-        "max_num_results" : 1
+        "vector_store_ids": [vector_store_id],
+        "max_num_results" : 3,    # Limiting the number of retrieval results
+        "filters": {              # Attribute filtering helps narrow down results by applying criteria
+            "type": "eq",
+            "key": "title",  # filename, type, etc.
+            "value": "deep research"
+        }
     }]
 )
 print("raw result: ", response)
 
+# Get only the content
 response_text = next(
     (content.text for output in response.output if output.type == "message"
      for content in output.content if content.type == "output_text"),
     "No response text found"
 )
-
 print(response_text)
-
-
